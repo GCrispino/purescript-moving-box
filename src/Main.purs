@@ -92,8 +92,8 @@ moveBox dir distValPx el = do
                             pure unit
                             where distStr = (show distValPx) <> "px"
 
-execTimeout :: Direction -> Direction -> Number -> Element.Element -> Effect Unit
-execTimeout horizontalDir verticalDir distValPx el = do
+execFrame :: Direction -> Direction -> Number -> Element.Element -> Effect Unit
+execFrame horizontalDir verticalDir distValPx el = do
                                         moveBox horizontalDir distValPx el
                                         moveBox verticalDir distValPx el
 
@@ -108,7 +108,7 @@ main = do
   boxEl <- createBoxElement "the-box" $ toDocument d
   newBody <- appendChild (Element.toNode boxEl) b
 
-  timeoutId <- requestAnimationFrame (execTimeout RightDir DownDir 10.0 boxEl) w
+  timeoutId <- requestAnimationFrame (execFrame RightDir DownDir 10.0 boxEl) w
   _ <- setTimeout 1000 (cancelAnimationFrame timeoutId w)
   pure unit
 
