@@ -22,24 +22,7 @@ import Web.DOM.Document (Document, createElement)
 import Web.DOM.Element as Element
 import Web.DOM.Node (Node, appendChild, setTextContent)
 
-data Direction = LeftDir | RightDir | UpDir | DownDir
-
-isHorizontal :: Direction -> Boolean
-isHorizontal RightDir = true
-isHorizontal LeftDir = true
-isHorizontal _ = false
-
-isVertical :: Direction -> Boolean
-isVertical UpDir = true
-isVertical DownDir = true
-isVertical _ = false
-
-derive instance eqDir :: Eq Direction
-instance showDir :: Show Direction where
-    show RightDir = "RightDir"
-    show LeftDir = "LeftDir"
-    show UpDir = "UpDir"
-    show DownDir = "DownDir"
+import Direction
 
 createElementWithContent :: String -> String -> HTMLDocument -> Effect Element.Element 
 createElementWithContent tag content d = do 
@@ -47,7 +30,6 @@ createElementWithContent tag content d = do
       setTextContent content (Element.toNode el)
       pure el
 
--- foreign import setClassName :: String -> Element.Element -> Effect Unit
 foreign import setStyleProp :: String -> String -> Element.Element -> Effect Boolean
 
 createBoxElement :: String -> Document -> Effect Element.Element
@@ -79,18 +61,18 @@ getNewDirectionAndDist dir distValPx widthOrHeight = case dir of
 
 moveBox :: Direction -> Number -> Element.Element -> Effect Unit
 moveBox dir distValPx el = do
-                            w <- window
-                            let prop = (if (isHorizontal dir) then "left" else "top")
-                            _ <- setStyleProp prop distStr el
-                            width <- (\w -> if dir == RightDir then w else 0) <$> innerWidth w
-                            height <- (\h -> if dir == DownDir then h else 0) <$> innerHeight w
-                            let tuple = getNewDirectionAndDist dir distValPx (if isHorizontal dir then width else height)
-                                direction = fst tuple
-                                newDistVal = snd tuple
+                        w <- window
+                        let prop = (if (isHorizontal dir) then "left" else "top")
+                        _ <- setStyleProp prop distStr el
+                        width <- (\w -> if dir == RightDir then w else 0) <$> innerWidth w
+                        height <- (\h -> if dir == DownDir then h else 0) <$> innerHeight w
+                        let tuple = getNewDirectionAndDist dir distValPx (if isHorizontal dir then width else height)
+                            direction = fst tuple
+                            newDistVal = snd tuple
 
-                            _ <- requestAnimationFrame (moveBox direction newDistVal el) w
-                            pure unit
-                            where distStr = (show distValPx) <> "px"
+                        _ <- requestAnimationFrame (moveBox direction newDistVal el) w
+                        pure unit
+                        where distStr = (show distValPx) <> "px"
 
 execFrame :: Direction -> Direction -> Number -> Element.Element -> Effect Unit
 execFrame horizontalDir verticalDir distValPx el = do

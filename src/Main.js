@@ -12,11 +12,3 @@ exports.setStyleProp = function(propName) {
     };
   };
 };
-
-exports.setClassName = function(className) {
-  return function(element) {
-    return function() {
-      element.className = className;
-    };
-  };
-};
