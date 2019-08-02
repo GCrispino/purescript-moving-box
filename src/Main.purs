@@ -1,12 +1,14 @@
 module Main where
 
 import Prelude
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Int (toNumber)
-import Data.Tuple
+import Data.Tuple (Tuple(..), fst, snd)
+import Data.Array ((!!), length)
 import Effect (Effect)
-import Effect.Console (log)
 import Effect.Timer (setTimeout)
+import Effect.Random (randomInt)
+import Effect.Console (log)
 
 import Web.HTML (window)
 import Web.HTML.HTMLDocument (HTMLDocument, body, toDocument)
@@ -22,7 +24,22 @@ import Web.DOM.Document (Document, createElement)
 import Web.DOM.Element as Element
 import Web.DOM.Node (Node, appendChild, setTextContent)
 
-import Direction
+import Direction (Direction(..), isHorizontal)
+
+defaultColor = "ff4242" :: String
+
+colors = [
+    defaultColor,
+    "07f7af",
+    "07c7f7",
+    "fc982d",
+    "2df5fc"
+] :: Array String
+
+getColor :: Effect String 
+getColor = map 
+            ((fromMaybe defaultColor) <<< ((!!) colors)) 
+            (randomInt 0 (length colors))
 
 createElementWithContent :: String -> String -> HTMLDocument -> Effect Element.Element 
 createElementWithContent tag content d = do 
@@ -44,40 +61,42 @@ getBodyNodeFromMaybe d defaultNode mB = case mB of
     Nothing -> defaultNode
     Just b -> toNode b
 
-getNewDirectionAndDist :: Direction -> Number -> Int -> Tuple Direction Number
-getNewDirectionAndDist dir distValPx widthOrHeight = case dir of
+getNewDirectionAndDist :: Direction -> Number -> Int -> String -> Effect (Tuple (Tuple Direction Number) String)
+getNewDirectionAndDist dir distValPx widthOrHeight boxColor = case dir of 
                             RightDir -> if distValPx >= (toNumber widthOrHeight) - 100.0
-                                then Tuple LeftDir distValPx
-                                else Tuple RightDir (distValPx + 7.0)
+                                then map (Tuple (Tuple LeftDir distValPx)) getColor
+                                else pure $ Tuple (Tuple RightDir (distValPx + 8.0)) boxColor
                             LeftDir -> if distValPx <= 0.0
-                                then Tuple RightDir distValPx
-                                else Tuple LeftDir (distValPx - 7.0)
+                                then map (Tuple (Tuple RightDir distValPx)) getColor
+                                else pure $ Tuple (Tuple LeftDir (distValPx - 8.0)) boxColor
                             DownDir -> if distValPx >= (toNumber widthOrHeight) - 100.0
-                                then Tuple UpDir distValPx
-                                else Tuple DownDir (distValPx + 7.0)
+                                then map (Tuple (Tuple UpDir distValPx)) getColor
+                                else pure $ Tuple (Tuple DownDir (distValPx + 8.0)) boxColor
                             UpDir -> if distValPx <= 0.0
-                                then Tuple DownDir distValPx
-                                else Tuple UpDir (distValPx - 7.0)
+                                then map (Tuple (Tuple DownDir distValPx)) getColor
+                                else pure $ Tuple (Tuple UpDir (distValPx - 8.0)) boxColor
 
-moveBox :: Direction -> Number -> Element.Element -> Effect Unit
-moveBox dir distValPx el = do
+moveBox :: Direction -> Number -> Element.Element -> String -> Effect Unit
+moveBox dir distValPx el boxColor = do
                         w <- window
                         let prop = (if (isHorizontal dir) then "left" else "top")
                         _ <- setStyleProp prop distStr el
-                        width <- (\w -> if dir == RightDir then w else 0) <$> innerWidth w
+                        width <- (\w' -> if dir == RightDir then w' else 0) <$> innerWidth w
                         height <- (\h -> if dir == DownDir then h else 0) <$> innerHeight w
-                        let tuple = getNewDirectionAndDist dir distValPx (if isHorizontal dir then width else height)
-                            direction = fst tuple
-                            newDistVal = snd tuple
+                        tuple <- getNewDirectionAndDist dir distValPx (if isHorizontal dir then width else height) boxColor 
+                        let direction = fst (fst tuple)
+                            newDistVal = snd (fst tuple)
+                            newColor = "#" <> (snd tuple)
+                        success <- setStyleProp "background" newColor el -- change color
 
-                        _ <- requestAnimationFrame (moveBox direction newDistVal el) w
+                        _ <- requestAnimationFrame (moveBox direction newDistVal el newColor) w
                         pure unit
                         where distStr = (show distValPx) <> "px"
 
 execFrame :: Direction -> Direction -> Number -> Element.Element -> Effect Unit
 execFrame horizontalDir verticalDir distValPx el = do
-                                        moveBox horizontalDir distValPx el
-                                        moveBox verticalDir distValPx el
+                                        moveBox horizontalDir distValPx el defaultColor 
+                                        moveBox verticalDir distValPx el defaultColor 
 
 main :: Effect Unit
 main = do
