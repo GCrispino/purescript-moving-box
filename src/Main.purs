@@ -10,6 +10,11 @@ import Effect.Timer (setTimeout)
 import Effect.Random (randomInt)
 import Effect.Console (log)
 
+import Web.DOM.Document (Document, createElement)
+import Web.DOM.Element as Element
+import Web.DOM.Node (Node, appendChild, setTextContent)
+import Web.Event.Event (EventType(..))
+import Web.Event.EventTarget (EventTarget, addEventListener, eventListener)
 import Web.HTML (window)
 import Web.HTML.HTMLDocument (HTMLDocument, body, toDocument)
 import Web.HTML.HTMLElement (HTMLElement, toNode)
@@ -18,11 +23,10 @@ import Web.HTML.Window (
     cancelAnimationFrame,
     innerWidth,
     innerHeight,
-    requestAnimationFrame
+    requestAnimationFrame,
+    toEventTarget
 )
-import Web.DOM.Document (Document, createElement)
-import Web.DOM.Element as Element
-import Web.DOM.Node (Node, appendChild, setTextContent)
+import Web.UIEvent.KeyboardEvent (fromEvent, key)
 
 import Direction (Direction(..), isHorizontal)
 
@@ -111,5 +115,15 @@ main = do
 
   timeoutId <- requestAnimationFrame (execFrame RightDir DownDir 10.0 boxEl) w
   _ <- setTimeout 1000 (cancelAnimationFrame timeoutId w)
+  
+  listener <- eventListener \e -> do
+    case fromEvent e of
+        Nothing -> pure unit
+        Just keyEvent -> if (key keyEvent) == "Enter"
+            then (log "cancelAnimationFrame!!!") 
+            else pure unit
+            
+  addEventListener (EventType "keydown") listener false (toEventTarget w)
+
   pure unit
 
