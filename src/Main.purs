@@ -6,19 +6,20 @@ import Data.Int (toNumber)
 import Data.Tuple (Tuple(..), fst, snd)
 import Data.Array ((!!), length)
 import Effect (Effect)
-import Effect.Timer (setTimeout)
 import Effect.Random (randomInt)
+import Effect.Ref (Ref, new, read, write)
 import Effect.Console (log)
 
 import Web.DOM.Document (Document, createElement)
 import Web.DOM.Element as Element
 import Web.DOM.Node (Node, appendChild, setTextContent)
 import Web.Event.Event (EventType(..))
-import Web.Event.EventTarget (EventTarget, addEventListener, eventListener)
+import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (window)
 import Web.HTML.HTMLDocument (HTMLDocument, body, toDocument)
 import Web.HTML.HTMLElement (HTMLElement, toNode)
 import Web.HTML.Window (
+    RequestAnimationFrameId,
     document,
     cancelAnimationFrame,
     innerWidth,
@@ -80,8 +81,8 @@ getNewDirectionAndDist dir distValPx widthOrHeight boxColor = case dir of
                                 then map (Tuple (Tuple DownDir distValPx)) getColor
                                 else pure $ Tuple (Tuple UpDir (distValPx - 8.0)) boxColor
 
-moveBox :: Direction -> Number -> Element.Element -> String -> Effect Unit
-moveBox dir distValPx el boxColor = do
+moveBox :: Direction -> Number -> Element.Element -> String -> Ref RequestAnimationFrameId -> Effect Unit
+moveBox dir distValPx el boxColor ref = do
                         w <- window
                         let prop = (if (isHorizontal dir) then "left" else "top")
                         _ <- setStyleProp prop distStr el
@@ -93,14 +94,16 @@ moveBox dir distValPx el boxColor = do
                             newColor = "#" <> (snd tuple)
                         success <- setStyleProp "background" newColor el -- change color
 
-                        _ <- requestAnimationFrame (moveBox direction newDistVal el newColor) w
+                        animationFrameId <- requestAnimationFrame (moveBox direction newDistVal el newColor ref) w
+                        write animationFrameId ref
                         pure unit
                         where distStr = (show distValPx) <> "px"
 
-execFrame :: Direction -> Direction -> Number -> Element.Element -> Effect Unit
-execFrame horizontalDir verticalDir distValPx el = do
-                                        moveBox horizontalDir distValPx el defaultColor 
-                                        moveBox verticalDir distValPx el defaultColor 
+execFrame :: Direction -> Direction -> Number -> Element.Element ->
+    (Tuple (Ref RequestAnimationFrameId) (Ref RequestAnimationFrameId)) -> Effect Unit
+execFrame horizontalDir verticalDir distValPx el (Tuple refHor refVert) = do
+                                        moveBox horizontalDir distValPx el defaultColor refHor
+                                        moveBox verticalDir distValPx el defaultColor refVert
 
 main :: Effect Unit
 main = do
@@ -113,14 +116,22 @@ main = do
   boxEl <- createBoxElement "the-box" $ toDocument d
   newBody <- appendChild (Element.toNode boxEl) b
 
-  timeoutId <- requestAnimationFrame (execFrame RightDir DownDir 10.0 boxEl) w
-  _ <- setTimeout 1000 (cancelAnimationFrame timeoutId w)
+  -- Create frame that does nothing just to get default frame id
+  defaultId <- (requestAnimationFrame (pure unit) w)
+  frameRefHor <- new defaultId
+  frameRefVert <- new defaultId
+
+  timeoutId <- requestAnimationFrame (execFrame RightDir DownDir 10.0 boxEl (Tuple frameRefHor frameRefVert)) w
   
   listener <- eventListener \e -> do
     case fromEvent e of
         Nothing -> pure unit
         Just keyEvent -> if (key keyEvent) == "Enter"
-            then (log "cancelAnimationFrame!!!") 
+            then do
+                idHor <- read frameRefHor
+                idVert <- read frameRefVert
+                cancelAnimationFrame idHor w
+                cancelAnimationFrame idVert w
             else pure unit
             
   addEventListener (EventType "keydown") listener false (toEventTarget w)
