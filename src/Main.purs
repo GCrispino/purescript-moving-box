@@ -19,6 +19,7 @@ import Web.HTML (window)
 import Web.HTML.HTMLDocument (HTMLDocument, body, toDocument)
 import Web.HTML.HTMLElement (HTMLElement, toNode)
 import Web.HTML.Window (
+    Window,
     RequestAnimationFrameId,
     document,
     cancelAnimationFrame,
@@ -27,7 +28,7 @@ import Web.HTML.Window (
     requestAnimationFrame,
     toEventTarget
 )
-import Web.UIEvent.KeyboardEvent (fromEvent, key)
+import Web.UIEvent.KeyboardEvent (KeyboardEvent, fromEvent, key)
 
 import Direction (Direction(..), isHorizontal)
 
@@ -99,11 +100,34 @@ moveBox dir distValPx el boxColor ref = do
                         pure unit
                         where distStr = (show distValPx) <> "px"
 
+type RefReqFrameId = Ref RequestAnimationFrameId
+
 execFrame :: Direction -> Direction -> Number -> Element.Element ->
-    (Tuple (Ref RequestAnimationFrameId) (Ref RequestAnimationFrameId)) -> Effect Unit
+    (Tuple RefReqFrameId RefReqFrameId) -> Effect Unit
 execFrame horizontalDir verticalDir distValPx el (Tuple refHor refVert) = do
                                         moveBox horizontalDir distValPx el defaultColor refHor
                                         moveBox verticalDir distValPx el defaultColor refVert
+
+toggleBoxMove :: KeyboardEvent -> Window -> Element.Element -> Ref Boolean -> (Tuple RefReqFrameId RefReqFrameId) -> Effect Unit
+toggleBoxMove keyEvent w boxEl movingRef (Tuple frameRefHor frameRefVert) = if (key keyEvent) == "Enter" 
+            then do
+                isMoving <- read movingRef
+
+                if isMoving == true
+                    then do
+                        idHor <- read frameRefHor
+                        idVert <- read frameRefVert
+                        cancelAnimationFrame idHor w
+                        cancelAnimationFrame idVert w
+                    else
+                        map (pure unit) (requestAnimationFrame (
+                          execFrame RightDir DownDir 10.0 boxEl
+                              (Tuple frameRefHor frameRefVert)
+                        ) w)
+
+                write (not isMoving) movingRef
+            else pure unit
+
 
 main :: Effect Unit
 main = do
@@ -121,19 +145,18 @@ main = do
   frameRefHor <- new defaultId
   frameRefVert <- new defaultId
 
-  timeoutId <- requestAnimationFrame (execFrame RightDir DownDir 10.0 boxEl (Tuple frameRefHor frameRefVert)) w
+  -- indicate if box is moving
+  movingRef <- new true
+
+  frameId <- requestAnimationFrame (
+    execFrame RightDir DownDir 10.0 boxEl
+        (Tuple frameRefHor frameRefVert)
+  ) w
   
   listener <- eventListener \e -> do
     case fromEvent e of
         Nothing -> pure unit
-        Just keyEvent -> if (key keyEvent) == "Enter"
-            then do
-                idHor <- read frameRefHor
-                idVert <- read frameRefVert
-                cancelAnimationFrame idHor w
-                cancelAnimationFrame idVert w
-            else pure unit
-            
+        Just keyEvent -> toggleBoxMove keyEvent w boxEl movingRef (Tuple frameRefHor frameRefVert) 
   addEventListener (EventType "keydown") listener false (toEventTarget w)
 
   pure unit
