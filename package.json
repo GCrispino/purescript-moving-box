@@ -1,0 +1,15 @@
+{
+  "name": "purescript-moving-box",
+  "version": "1.0.0",
+  "description": "A moving box created with purescript",
+  "main": "",
+  "dependencies": {},
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "pulp build -O --to dist/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

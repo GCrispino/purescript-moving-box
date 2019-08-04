@@ -11,7 +11,10 @@
     "purescript-console": "^4.2.0",
     "purescript-effect": "^2.0.1",
     "purescript-lists": "^5.4.1",
-    "purescript-random": "^4.0.0"
+    "purescript-random": "^4.0.0",
+    "purescript-web-uievents": "^2.0.0",
+    "purescript-web-html": "^2.2.1",
+    "purescript-web-dom": "^3.0.0"
   },
   "devDependencies": {
     "purescript-psci-support": "^4.0.0"
