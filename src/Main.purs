@@ -44,7 +44,7 @@ colors = [
 
 getColor :: Effect String 
 getColor = map 
-            ((fromMaybe defaultColor) <<< ((!!) colors)) 
+            ((fromMaybe defaultColor) <<< ((!!) colors))
             (randomInt 0 (length colors))
 
 createElementWithContent :: String -> String -> HTMLDocument -> Effect Element.Element 
@@ -97,7 +97,6 @@ moveBox dir distValPx el boxColor ref = do
 
                         animationFrameId <- requestAnimationFrame (moveBox direction newDistVal el newColor ref) w
                         write animationFrameId ref
-                        pure unit
                         where distStr = (show distValPx) <> "px"
 
 type RefReqFrameId = Ref RequestAnimationFrameId
@@ -109,16 +108,14 @@ execFrame horizontalDir verticalDir distValPx el (Tuple refHor refVert) = do
                                         moveBox verticalDir distValPx el defaultColor refVert
 
 toggleBoxMove :: KeyboardEvent -> Window -> Element.Element -> Ref Boolean -> (Tuple RefReqFrameId RefReqFrameId) -> Effect Unit
-toggleBoxMove keyEvent w boxEl movingRef (Tuple frameRefHor frameRefVert) = if (key keyEvent) == "Enter" 
-            then do
+toggleBoxMove keyEvent w boxEl movingRef (Tuple frameRefHor frameRefVert) = case (key keyEvent) of
+            "Enter" -> do
                 isMoving <- read movingRef
 
                 if isMoving == true
-                    then do
-                        idHor <- read frameRefHor
-                        idVert <- read frameRefVert
-                        cancelAnimationFrame idHor w
-                        cancelAnimationFrame idVert w
+                    then read frameRefHor
+                        >>= (flip cancelAnimationFrame) w
+                        >>= pure (read frameRefVert) >>= ((flip cancelAnimationFrame) w)
                     else
                         map (pure unit) (requestAnimationFrame (
                           execFrame RightDir DownDir 10.0 boxEl
@@ -126,7 +123,7 @@ toggleBoxMove keyEvent w boxEl movingRef (Tuple frameRefHor frameRefVert) = if (
                         ) w)
 
                 write (not isMoving) movingRef
-            else pure unit
+            _ -> pure unit
 
 
 main :: Effect Unit
