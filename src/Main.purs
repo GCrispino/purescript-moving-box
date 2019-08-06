@@ -10,9 +10,10 @@ import Effect.Random (randomInt)
 import Effect.Ref (Ref, new, read, write)
 import Effect.Console (log)
 
-import Web.DOM.Document (Document, createElement)
+import Web.DOM.Document (Document, createElement, toNonElementParentNode)
 import Web.DOM.Element as Element
 import Web.DOM.Node (Node, appendChild, setTextContent)
+import Web.DOM.NonElementParentNode (getElementById)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (window)
@@ -82,9 +83,16 @@ getNewDirectionAndDist dir distValPx widthOrHeight boxColor = case dir of
                                 then map (Tuple (Tuple DownDir distValPx)) getColor
                                 else pure $ Tuple (Tuple UpDir (distValPx - 8.0)) boxColor
 
-moveBox :: Direction -> Number -> Element.Element -> String -> Ref RequestAnimationFrameId -> Effect Unit
-moveBox dir distValPx el boxColor ref = do
+moveBox :: Direction -> RefPosition-> Element.Element -> String -> Ref RequestAnimationFrameId -> Effect Unit
+moveBox dir positionRef{--(Tuple distValPxHor distValPxVert)--} el boxColor ref = do
                         w <- window
+                        positionTuple <- read positionRef
+                        let distValPxHor = fst positionTuple
+                        let distValPxVert = snd positionTuple
+                        let distValPx = if (dir == RightDir || dir == LeftDir)
+                            then distValPxHor
+                            else distValPxVert
+                        let distStr = (show distValPx) <> "px"
                         let prop = (if (isHorizontal dir) then "left" else "top")
                         _ <- setStyleProp prop distStr el
                         width <- (\w' -> if dir == RightDir then w' else 0) <$> innerWidth w
@@ -93,32 +101,42 @@ moveBox dir distValPx el boxColor ref = do
                         let direction = fst (fst tuple)
                             newDistVal = snd (fst tuple)
                             newColor = "#" <> (snd tuple)
+                        let newPosition = if (dir == RightDir || dir == LeftDir)
+                            then (Tuple newDistVal distValPxVert)
+                            else (Tuple distValPxHor newDistVal)
                         success <- setStyleProp "background" newColor el -- change color
 
-                        animationFrameId <- requestAnimationFrame (moveBox direction newDistVal el newColor ref) w
+                        write newPosition positionRef
+                        animationFrameId <- requestAnimationFrame (moveBox direction positionRef el newColor ref) w
                         write animationFrameId ref
-                        where distStr = (show distValPx) <> "px"
 
 type RefReqFrameId = Ref RequestAnimationFrameId
+type RefPosition = Ref (Tuple Number Number)
 
-execFrame :: Direction -> Direction -> Number -> Element.Element ->
+execFrame :: Direction -> Direction -> RefPosition -> Element.Element ->
     (Tuple RefReqFrameId RefReqFrameId) -> Effect Unit
 execFrame horizontalDir verticalDir distValPx el (Tuple refHor refVert) = do
                                         moveBox horizontalDir distValPx el defaultColor refHor
                                         moveBox verticalDir distValPx el defaultColor refVert
 
-toggleBoxMove :: KeyboardEvent -> Window -> Element.Element -> Ref Boolean -> (Tuple RefReqFrameId RefReqFrameId) -> Effect Unit
-toggleBoxMove keyEvent w boxEl movingRef (Tuple frameRefHor frameRefVert) = case (key keyEvent) of
+
+toggleBoxMove :: KeyboardEvent -> Ref Boolean -> (Tuple (Tuple RefReqFrameId RefReqFrameId) RefPosition) -> Effect Unit
+toggleBoxMove keyEvent movingRef (Tuple (Tuple frameRefHor frameRefVert) positionRef) = case (key keyEvent) of
             "Enter" -> do
                 isMoving <- read movingRef
+                w <- window
+                d <- map toDocument (document w)
+                defaultElem <- (createElement "span" d)
 
                 if isMoving == true
                     then read frameRefHor
                         >>= (flip cancelAnimationFrame) w
                         >>= pure (read frameRefVert) >>= ((flip cancelAnimationFrame) w)
-                    else
+                    else do
+                        boxEl <- map (fromMaybe defaultElem) (getElementById "the-box" (toNonElementParentNode d))
+                        
                         map (pure unit) (requestAnimationFrame (
-                          execFrame RightDir DownDir 10.0 boxEl
+                          execFrame RightDir DownDir positionRef boxEl
                               (Tuple frameRefHor frameRefVert)
                         ) w)
 
@@ -141,19 +159,20 @@ main = do
   defaultId <- (requestAnimationFrame (pure unit) w)
   frameRefHor <- new defaultId
   frameRefVert <- new defaultId
+  positionRef <- new (Tuple 0.0 0.0)
 
   -- indicate if box is moving
   movingRef <- new true
 
   frameId <- requestAnimationFrame (
-    execFrame RightDir DownDir 10.0 boxEl
+    execFrame RightDir DownDir positionRef boxEl
         (Tuple frameRefHor frameRefVert)
   ) w
   
   listener <- eventListener \e -> do
     case fromEvent e of
         Nothing -> pure unit
-        Just keyEvent -> toggleBoxMove keyEvent w boxEl movingRef (Tuple frameRefHor frameRefVert) 
+        Just keyEvent -> toggleBoxMove keyEvent movingRef (Tuple (Tuple frameRefHor frameRefVert) positionRef) 
   addEventListener (EventType "keydown") listener false (toEventTarget w)
 
   pure unit
