@@ -73,6 +73,10 @@ createBoxElement id document = do
     boxEl <- createElement "div" document
     Element.setId id boxEl
     Element.setClassName "box" boxEl
+    _ <- setStyleProp "position" "relative" boxEl
+    _ <- setStyleProp "width" "5em" boxEl
+    _ <- setStyleProp "height" "5em" boxEl
+    _ <- setStyleProp "background" "#ff4242" boxEl
     pure boxEl
 
 getBodyNodeFromMaybe :: HTMLDocument -> Node -> Maybe HTMLElement -> Node
