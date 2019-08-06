@@ -33,7 +33,9 @@ import Web.UIEvent.KeyboardEvent (KeyboardEvent, fromEvent, key)
 
 import Direction (Direction(..), isHorizontal, isVertical)
 
-defaultColor = "ff4242" :: String
+type Color = String
+
+defaultColor = "ff4242" :: Color
 
 colors = [
     defaultColor,
@@ -41,18 +43,17 @@ colors = [
     "07c7f7",
     "fc982d",
     "2df5fc"
-] :: Array String
+] :: Array Color
 
-type State = {
-    dirHor :: Direction,
-    dirVert :: Direction,
-    isMoving :: Boolean,
-    position :: (Tuple Number Number),
-    rafIdHor :: RequestAnimationFrameId,
-    rafIdVert :: RequestAnimationFrameId
+type State = { dirHor :: Direction
+    , dirVert :: Direction
+    , isMoving :: Boolean
+    , position :: (Tuple Number Number)
+    , rafIdHor :: RequestAnimationFrameId
+    , rafIdVert :: RequestAnimationFrameId
 }
 
-getColor :: Effect String 
+getColor :: Effect Color 
 getColor = map 
             ((fromMaybe defaultColor) <<< ((!!) colors))
             (randomInt 0 (length colors))
@@ -77,7 +78,7 @@ getBodyNodeFromMaybe d defaultNode mB = case mB of
     Nothing -> defaultNode
     Just b -> toNode b
 
-getNewDirectionAndDist :: Direction -> Number -> Int -> String -> Effect (Tuple (Tuple Direction Number) String)
+getNewDirectionAndDist :: Direction -> Number -> Int -> Color -> Effect (Tuple (Tuple Direction Number) Color)
 getNewDirectionAndDist dir distValPx widthOrHeight boxColor = case dir of 
                             RightDir -> if distValPx >= (toNumber widthOrHeight) - 100.0
                                 then map (Tuple (Tuple LeftDir distValPx)) getColor
@@ -92,7 +93,7 @@ getNewDirectionAndDist dir distValPx widthOrHeight boxColor = case dir of
                                 then map (Tuple (Tuple DownDir distValPx)) getColor
                                 else pure $ Tuple (Tuple UpDir (distValPx - 8.0)) boxColor
 
-moveBox :: Direction -> Element.Element -> String -> Ref State -> Effect Unit
+moveBox :: Direction -> Element.Element -> Color -> Ref State -> Effect Unit
 moveBox dir el boxColor stateRef = do
                         w <- window
                         state <- read stateRef
