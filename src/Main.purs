@@ -45,7 +45,8 @@ colors = [
     "2df5fc"
 ] :: Array Color
 
-type State = { dirHor :: Direction
+type State = { color :: Color
+    , dirHor :: Direction
     , dirVert :: Direction
     , isMoving :: Boolean
     , position :: (Tuple Number Number)
@@ -82,19 +83,19 @@ getNewDirectionAndDist :: Direction -> Number -> Int -> Color -> Effect (Tuple (
 getNewDirectionAndDist dir distValPx widthOrHeight boxColor = case dir of 
                             RightDir -> if distValPx >= (toNumber widthOrHeight) - 100.0
                                 then map (Tuple (Tuple LeftDir distValPx)) getColor
-                                else pure $ Tuple (Tuple RightDir (distValPx + 8.0)) boxColor
+                                else pure $ Tuple (Tuple RightDir (distValPx + 9.0)) boxColor
                             LeftDir -> if distValPx <= 0.0
                                 then map (Tuple (Tuple RightDir distValPx)) getColor
-                                else pure $ Tuple (Tuple LeftDir (distValPx - 8.0)) boxColor
+                                else pure $ Tuple (Tuple LeftDir (distValPx - 9.0)) boxColor
                             DownDir -> if distValPx >= (toNumber widthOrHeight) - 100.0
                                 then map (Tuple (Tuple UpDir distValPx)) getColor
-                                else pure $ Tuple (Tuple DownDir (distValPx + 8.0)) boxColor
+                                else pure $ Tuple (Tuple DownDir (distValPx + 9.0)) boxColor
                             UpDir -> if distValPx <= 0.0
                                 then map (Tuple (Tuple DownDir distValPx)) getColor
-                                else pure $ Tuple (Tuple UpDir (distValPx - 8.0)) boxColor
+                                else pure $ Tuple (Tuple UpDir (distValPx - 9.0)) boxColor
 
-moveBox :: Direction -> Element.Element -> Color -> Ref State -> Effect Unit
-moveBox dir el boxColor stateRef = do
+moveBox :: Direction -> Element.Element -> Ref State -> Effect Unit
+moveBox dir el stateRef = do
                         w <- window
                         state <- read stateRef
                         let positionTuple = state.position
@@ -108,7 +109,7 @@ moveBox dir el boxColor stateRef = do
                         _ <- setStyleProp prop distStr el
                         width <- (\w' -> if dir == RightDir then w' else 0) <$> innerWidth w
                         height <- (\h -> if dir == DownDir then h else 0) <$> innerHeight w
-                        tuple <- getNewDirectionAndDist dir distValPx (if isHorizontal dir then width else height) boxColor 
+                        tuple <- getNewDirectionAndDist dir distValPx (if isHorizontal dir then width else height) state.color
                         let direction = fst (fst tuple)
                             newDistVal = snd (fst tuple)
                             newColor = "#" <> (snd tuple)
@@ -117,9 +118,10 @@ moveBox dir el boxColor stateRef = do
                             else (Tuple distValPxHor newDistVal)
                         success <- setStyleProp "background" newColor el -- change color
 
-                        animationFrameId <- requestAnimationFrame (moveBox direction el newColor stateRef) w
+                        animationFrameId <- requestAnimationFrame (moveBox direction el stateRef) w
 
-                        write { dirHor: if (isHorizontal direction) then direction else state.dirHor
+                        write { color: newColor
+                            , dirHor: if (isHorizontal direction) then direction else state.dirHor
                             , dirVert: if (isVertical direction) then direction else state.dirVert
                             , isMoving: true
                             , position: newPosition
@@ -132,8 +134,8 @@ type RefPosition = Ref (Tuple Number Number)
 
 execFrame :: Direction -> Direction -> Element.Element -> Ref State -> Effect Unit
 execFrame horizontalDir verticalDir el stateRef = do
-                                        moveBox horizontalDir el defaultColor stateRef
-                                        moveBox verticalDir el defaultColor stateRef
+                                        moveBox horizontalDir el stateRef
+                                        moveBox verticalDir el stateRef
 
 
 toggleBoxMove :: KeyboardEvent -> Ref State -> Effect Unit
@@ -154,7 +156,8 @@ toggleBoxMove keyEvent stateRef = case (key keyEvent) of
                           execFrame state.dirHor state.dirVert boxEl stateRef
                         ) w)
 
-                write { dirHor: state.dirHor
+                write { color: state.color
+                    , dirHor: state.dirHor
                     , dirVert: state.dirVert
                     , isMoving: not state.isMoving                    
                     , position: state.position
@@ -179,6 +182,7 @@ main = do
   defaultId <- (requestAnimationFrame (pure unit) w)
 
   stateRef <- new {
+    color: defaultColor,
     dirHor: RightDir,
     dirVert: DownDir,
     isMoving: true,
