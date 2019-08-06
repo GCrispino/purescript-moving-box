@@ -4,7 +4,7 @@ import Prelude
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Int (toNumber)
 import Data.Tuple (Tuple(..), fst, snd)
-import Data.Array ((!!), length)
+import Data.Array ((!!), filter, length)
 import Effect (Effect)
 import Effect.Random (randomInt)
 import Effect.Ref (Ref, new, read, write)
@@ -54,10 +54,11 @@ type State = { color :: Color
     , rafIdVert :: RequestAnimationFrameId
 }
 
-getColor :: Effect Color 
-getColor = map 
-            ((fromMaybe defaultColor) <<< ((!!) colors))
-            (randomInt 0 (length colors))
+getColor :: Color -> Effect Color 
+getColor curColor = map 
+            ((fromMaybe defaultColor) <<< ((!!) colors'))
+            (randomInt 0 (length colors'))
+            where colors' = filter (\c -> c /= curColor) colors
 
 createElementWithContent :: String -> String -> HTMLDocument -> Effect Element.Element 
 createElementWithContent tag content d = do 
@@ -82,16 +83,16 @@ getBodyNodeFromMaybe d defaultNode mB = case mB of
 getNewDirectionAndDist :: Direction -> Number -> Int -> Color -> Effect (Tuple (Tuple Direction Number) Color)
 getNewDirectionAndDist dir distValPx widthOrHeight boxColor = case dir of 
                             RightDir -> if distValPx >= (toNumber widthOrHeight) - 100.0
-                                then map (Tuple (Tuple LeftDir distValPx)) getColor
+                                then map (Tuple (Tuple LeftDir distValPx)) (getColor boxColor)
                                 else pure $ Tuple (Tuple RightDir (distValPx + 9.0)) boxColor
                             LeftDir -> if distValPx <= 0.0
-                                then map (Tuple (Tuple RightDir distValPx)) getColor
+                                then map (Tuple (Tuple RightDir distValPx)) (getColor boxColor)
                                 else pure $ Tuple (Tuple LeftDir (distValPx - 9.0)) boxColor
                             DownDir -> if distValPx >= (toNumber widthOrHeight) - 100.0
-                                then map (Tuple (Tuple UpDir distValPx)) getColor
+                                then map (Tuple (Tuple UpDir distValPx)) (getColor boxColor)
                                 else pure $ Tuple (Tuple DownDir (distValPx + 9.0)) boxColor
                             UpDir -> if distValPx <= 0.0
-                                then map (Tuple (Tuple DownDir distValPx)) getColor
+                                then map (Tuple (Tuple DownDir distValPx)) (getColor boxColor)
                                 else pure $ Tuple (Tuple UpDir (distValPx - 9.0)) boxColor
 
 moveBox :: Direction -> Element.Element -> Ref State -> Effect Unit
@@ -112,11 +113,11 @@ moveBox dir el stateRef = do
                         tuple <- getNewDirectionAndDist dir distValPx (if isHorizontal dir then width else height) state.color
                         let direction = fst (fst tuple)
                             newDistVal = snd (fst tuple)
-                            newColor = "#" <> (snd tuple)
+                            newColor = (snd tuple)
                         let newPosition = if (dir == RightDir || dir == LeftDir)
                             then (Tuple newDistVal distValPxVert)
                             else (Tuple distValPxHor newDistVal)
-                        success <- setStyleProp "background" newColor el -- change color
+                        success <- setStyleProp "background" ("#" <> newColor) el -- change color
 
                         animationFrameId <- requestAnimationFrame (moveBox direction el stateRef) w
 
