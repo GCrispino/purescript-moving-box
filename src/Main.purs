@@ -31,7 +31,7 @@ import Web.HTML.Window (
 )
 import Web.UIEvent.KeyboardEvent (KeyboardEvent, fromEvent, key)
 
-import Direction (Direction(..), isHorizontal, isVertical)
+import Direction (Direction(..), ifIsHorizontal, ifIsVertical)
 
 type Color = String
 
@@ -110,11 +110,11 @@ moveBox dir el stateRef = do
                                 then distValPxHor
                                 else distValPxVert
                             distStr = (show distValPx) <> "px"
-                            prop = (if (isHorizontal dir) then "left" else "top")
+                            prop = ifIsHorizontal dir "left" "top"
                         _ <- setStyleProp prop distStr el
                         width <- (\w' -> if dir == RightDir then w' else 0) <$> innerWidth w
                         height <- (\h -> if dir == DownDir then h else 0) <$> innerHeight w
-                        tuple <- getNewDirectionAndDist dir distValPx (if isHorizontal dir then width else height) state.color
+                        tuple <- getNewDirectionAndDist dir distValPx (ifIsHorizontal dir width height) state.color
                         let direction = fst (fst tuple)
                             newDistVal = snd (fst tuple)
                             newColor = (snd tuple)
@@ -126,12 +126,12 @@ moveBox dir el stateRef = do
                         animationFrameId <- requestAnimationFrame (moveBox direction el stateRef) w
 
                         write { color: newColor
-                            , dirHor: if (isHorizontal direction) then direction else state.dirHor
-                            , dirVert: if (isVertical direction) then direction else state.dirVert
+                            , dirHor: ifIsHorizontal direction direction state.dirHor
+                            , dirVert: ifIsVertical direction direction state.dirVert
                             , isMoving: true
                             , position: newPosition
-                            , rafIdHor: if (isHorizontal direction) then animationFrameId else state.rafIdHor
-                            , rafIdVert: if (isVertical direction) then animationFrameId else state.rafIdVert
+                            , rafIdHor: ifIsHorizontal direction animationFrameId state.rafIdHor
+                            , rafIdVert: ifIsVertical direction animationFrameId state.rafIdVert
                         } stateRef
 
 type RefReqFrameId = Ref RequestAnimationFrameId

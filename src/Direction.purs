@@ -2,6 +2,8 @@ module Direction
     (Direction(..)
     , isHorizontal
     , isVertical
+    , ifIsHorizontal
+    , ifIsVertical
     ) where
 
 import Prelude
@@ -17,6 +19,12 @@ isVertical :: Direction -> Boolean
 isVertical UpDir = true
 isVertical DownDir = true
 isVertical _ = false
+
+ifIsHorizontal :: forall a. Direction -> a -> a -> a
+ifIsHorizontal dir x y = if (isHorizontal dir) then x else y
+
+ifIsVertical :: forall a. Direction -> a -> a -> a
+ifIsVertical dir x y = if (isVertical dir) then x else y
 
 derive instance eqDir :: Eq Direction
 instance showDir :: Show Direction where
