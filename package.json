@@ -4,10 +4,13 @@
   "description": "A moving box created with purescript",
   "main": "",
   "dependencies": {},
-  "devDependencies": {},
+  "devDependencies": {
+    "gh-pages": "^2.0.1"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "pulp build -O --to dist/index.js"
+    "build": "pulp build -O --to dist/index.js",
+    "deploy": "sed 's/dist\\///' index.html > dist/index.html && gh-pages -d dist && rm dist/index.html"
   },
   "keywords": [],
   "author": "",
