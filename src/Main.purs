@@ -3,7 +3,7 @@ module Main where
 import Prelude
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Int (toNumber)
-import Data.Tuple (Tuple(..), fst, snd)
+import Data.Tuple (Tuple(..))
 import Data.Array ((!!), filter, length)
 import Effect (Effect)
 import Effect.Random (randomInt)
@@ -39,7 +39,7 @@ defaultColor = "ff4242" :: Color
 
 colors = [
     defaultColor,
-    "07f7af",
+    "07f7af"
     "07c7f7",
     "fc982d",
     "2df5fc"
@@ -101,30 +101,34 @@ getNewDirectionAndDist dir distValPx widthOrHeight boxColor = case dir of
 
 moveBox :: Direction -> Element.Element -> Ref State -> Effect Unit
 moveBox dir el stateRef = do
-                        w <- window
+                        -- Read state
                         state <- read stateRef
-                        let positionTuple = state.position
-                            distValPxHor = fst positionTuple
-                            distValPxVert = snd positionTuple
+
+                        -- Move box
+                        let (Tuple distValPxHor distValPxVert) = state.position
                             distValPx = if (dir == RightDir || dir == LeftDir)
                                 then distValPxHor
                                 else distValPxVert
                             distStr = (show distValPx) <> "px"
                             prop = ifIsHorizontal dir "left" "top"
                         _ <- setStyleProp prop distStr el
+
+                        -- Determine new direction
+                        w <- window
                         width <- (\w' -> if dir == RightDir then w' else 0) <$> innerWidth w
                         height <- (\h -> if dir == DownDir then h else 0) <$> innerHeight w
-                        tuple <- getNewDirectionAndDist dir distValPx (ifIsHorizontal dir width height) state.color
-                        let direction = fst (fst tuple)
-                            newDistVal = snd (fst tuple)
-                            newColor = (snd tuple)
+                        (Tuple (Tuple direction newDistVal) newColor) <- getNewDirectionAndDist dir distValPx (ifIsHorizontal dir width height) state.color
                         let newPosition = if (dir == RightDir || dir == LeftDir)
                             then (Tuple newDistVal distValPxVert)
                             else (Tuple distValPxHor newDistVal)
-                        success <- setStyleProp "background" ("#" <> newColor) el -- change color
 
+                        -- change color
+                        success <- setStyleProp "background" ("#" <> newColor) el
+
+                        -- Call next frame
                         animationFrameId <- requestAnimationFrame (moveBox direction el stateRef) w
 
+                        -- Update state
                         write { color: newColor
                             , dirHor: ifIsHorizontal direction direction state.dirHor
                             , dirVert: ifIsVertical direction direction state.dirVert
