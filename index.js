@@ -1244,9 +1244,9 @@ var PS = {};
                       var v5 = getNewDirectionAndDist(hDir)(v.position.value0)(v3)();
                       var v6 = getNewDirectionAndDist(vDir)(v.position.value1)(v4)();
                       var newPosition = new Data_Tuple.Tuple(v5.value1, v6.value1);
-                      var changedDir = Data_Eq.notEq(Direction.eqDir)(v5.value0)(hDir) || Data_Eq.notEq(Direction.eqDir)(v6.value0)(vDir);
                       var v7 = (function () {
-                          if (changedDir) {
+                          var $49 = Data_Eq.notEq(Direction.eqDir)(v5.value0)(hDir) || Data_Eq.notEq(Direction.eqDir)(v6.value0)(vDir);
+                          if ($49) {
                               return getColor(v.color)();
                           };
                           return v.color;
@@ -1331,7 +1331,7 @@ var PS = {};
           if (v9 instanceof Data_Maybe.Just) {
               return toggleBoxMove(v9.value0)(v7);
           };
-          throw new Error("Failed pattern match at Main (line 205, column 5 - line 207, column 57): " + [ v9.constructor.name ]);
+          throw new Error("Failed pattern match at Main (line 202, column 5 - line 204, column 57): " + [ v9.constructor.name ]);
       })();
       Web_Event_EventTarget.addEventListener("keydown")(v9)(false)(Web_HTML_Window.toEventTarget(v))();
       return Data_Unit.unit;
