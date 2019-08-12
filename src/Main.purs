@@ -118,7 +118,7 @@ moveBox hDir vDir el stateRef = do
                         let newPosition = Tuple newHDist newVDist
 
                         -- change color
-                        newColor <- if changedDir (hDirection /= hDir) || (vDirection /= vDir)
+                        newColor <- if (hDirection /= hDir) || (vDirection /= vDir)
                             then getColor state.color
                             else pure state.color
 
