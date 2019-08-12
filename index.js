@@ -282,7 +282,9 @@ var PS = {};
     return function (r2) {
       return r1 === r2;
     };
-  };                            
+  };
+
+  exports.eqBooleanImpl = refEq;
   exports.eqIntImpl = refEq;
 })(PS["Data.Eq"] = PS["Data.Eq"] || {});
 (function($PS) {
@@ -294,12 +296,22 @@ var PS = {};
   var Eq = function (eq) {
       this.eq = eq;
   };                                           
-  var eqInt = new Eq($foreign.eqIntImpl);
+  var eqInt = new Eq($foreign.eqIntImpl);  
+  var eqBoolean = new Eq($foreign.eqBooleanImpl);
   var eq = function (dict) {
       return dict.eq;
   };
+  var notEq = function (dictEq) {
+      return function (x) {
+          return function (y) {
+              return eq(eqBoolean)(eq(dictEq)(x)(y))(false);
+          };
+      };
+  };
   exports["Eq"] = Eq;
   exports["eq"] = eq;
+  exports["notEq"] = notEq;
+  exports["eqBoolean"] = eqBoolean;
   exports["eqInt"] = eqInt;
 })(PS);
 (function($PS) {
@@ -540,15 +552,7 @@ var PS = {};
       };
       return Tuple;
   })();
-  var snd = function (v) {
-      return v.value1;
-  };                                                                                                    
-  var fst = function (v) {
-      return v.value0;
-  };
   exports["Tuple"] = Tuple;
-  exports["fst"] = fst;
-  exports["snd"] = snd;
 })(PS);
 (function(exports) {
   "use strict";
@@ -597,46 +601,6 @@ var PS = {};
       DownDir.value = new DownDir();
       return DownDir;
   })();
-  var isVertical = function (v) {
-      if (v instanceof UpDir) {
-          return true;
-      };
-      if (v instanceof DownDir) {
-          return true;
-      };
-      return false;
-  };
-  var isHorizontal = function (v) {
-      if (v instanceof RightDir) {
-          return true;
-      };
-      if (v instanceof LeftDir) {
-          return true;
-      };
-      return false;
-  };
-  var ifIsVertical = function (dir) {
-      return function (x) {
-          return function (y) {
-              var $8 = isVertical(dir);
-              if ($8) {
-                  return x;
-              };
-              return y;
-          };
-      };
-  };
-  var ifIsHorizontal = function (dir) {
-      return function (x) {
-          return function (y) {
-              var $9 = isHorizontal(dir);
-              if ($9) {
-                  return x;
-              };
-              return y;
-          };
-      };
-  };
   var eqDir = new Data_Eq.Eq(function (x) {
       return function (y) {
           if (x instanceof LeftDir && y instanceof LeftDir) {
@@ -658,10 +622,6 @@ var PS = {};
   exports["RightDir"] = RightDir;
   exports["UpDir"] = UpDir;
   exports["DownDir"] = DownDir;
-  exports["isHorizontal"] = isHorizontal;
-  exports["isVertical"] = isVertical;
-  exports["ifIsHorizontal"] = ifIsHorizontal;
-  exports["ifIsVertical"] = ifIsVertical;
   exports["eqDir"] = eqDir;
 })(PS);
 (function(exports) {
@@ -1160,7 +1120,6 @@ var PS = {};
   var exports = $PS["Main"];
   var $foreign = $PS["Main"];
   var Control_Applicative = $PS["Control.Applicative"];
-  var Control_Bind = $PS["Control.Bind"];
   var Data_Array = $PS["Data.Array"];
   var Data_Eq = $PS["Data.Eq"];
   var Data_Functor = $PS["Data.Functor"];
@@ -1183,6 +1142,41 @@ var PS = {};
   var Web_HTML_HTMLElement = $PS["Web.HTML.HTMLElement"];
   var Web_HTML_Window = $PS["Web.HTML.Window"];
   var Web_UIEvent_KeyboardEvent = $PS["Web.UIEvent.KeyboardEvent"];                
+  var getNewDirectionAndDist = function (dir) {
+      return function (distValPx) {
+          return function (widthOrHeight) {
+              if (dir instanceof Direction.RightDir) {
+                  var $34 = distValPx >= Data_Int.toNumber(widthOrHeight) - 100.0;
+                  if ($34) {
+                      return Control_Applicative.pure(Effect.applicativeEffect)(new Data_Tuple.Tuple(Direction.LeftDir.value, distValPx));
+                  };
+                  return Control_Applicative.pure(Effect.applicativeEffect)(new Data_Tuple.Tuple(Direction.RightDir.value, distValPx + 9.0));
+              };
+              if (dir instanceof Direction.LeftDir) {
+                  var $35 = distValPx <= 0.0;
+                  if ($35) {
+                      return Control_Applicative.pure(Effect.applicativeEffect)(new Data_Tuple.Tuple(Direction.RightDir.value, distValPx));
+                  };
+                  return Control_Applicative.pure(Effect.applicativeEffect)(new Data_Tuple.Tuple(Direction.LeftDir.value, distValPx - 9.0));
+              };
+              if (dir instanceof Direction.DownDir) {
+                  var $36 = distValPx >= Data_Int.toNumber(widthOrHeight) - 100.0;
+                  if ($36) {
+                      return Control_Applicative.pure(Effect.applicativeEffect)(new Data_Tuple.Tuple(Direction.UpDir.value, distValPx));
+                  };
+                  return Control_Applicative.pure(Effect.applicativeEffect)(new Data_Tuple.Tuple(Direction.DownDir.value, distValPx + 9.0));
+              };
+              if (dir instanceof Direction.UpDir) {
+                  var $37 = distValPx <= 0.0;
+                  if ($37) {
+                      return Control_Applicative.pure(Effect.applicativeEffect)(new Data_Tuple.Tuple(Direction.DownDir.value, distValPx));
+                  };
+                  return Control_Applicative.pure(Effect.applicativeEffect)(new Data_Tuple.Tuple(Direction.UpDir.value, distValPx - 9.0));
+              };
+              throw new Error("Failed pattern match at Main (line 87, column 54 - line 99, column 74): " + [ dir.constructor.name ]);
+          };
+      };
+  };
   var getBodyNodeFromMaybe = function (d) {
       return function (defaultNode) {
           return function (mB) {
@@ -1192,7 +1186,7 @@ var PS = {};
               if (mB instanceof Data_Maybe.Just) {
                   return Web_HTML_HTMLElement.toNode(mB.value0);
               };
-              throw new Error("Failed pattern match at Main (line 83, column 41 - line 85, column 23): " + [ mB.constructor.name ]);
+              throw new Error("Failed pattern match at Main (line 82, column 41 - line 84, column 23): " + [ mB.constructor.name ]);
           };
       };
   };
@@ -1228,116 +1222,55 @@ var PS = {};
           return c !== curColor;
       })(colors);
       return Data_Functor.map(Effect.functorEffect)((function () {
-          var $70 = Data_Maybe.fromMaybe(defaultColor);
-          var $71 = Data_Array.index(colors$prime);
-          return function ($72) {
-              return $70($71($72));
+          var $78 = Data_Maybe.fromMaybe(defaultColor);
+          var $79 = Data_Array.index(colors$prime);
+          return function ($80) {
+              return $78($79($80));
           };
-      })())(Effect_Random.randomInt(0)(Data_Array.length(colors$prime)));
+      })())(Effect_Random.randomInt(0)(Data_Array.length(colors$prime) - 1 | 0));
   };
-  var getNewDirectionAndDist = function (dir) {
-      return function (distValPx) {
-          return function (widthOrHeight) {
-              return function (boxColor) {
-                  if (dir instanceof Direction.RightDir) {
-                      var $36 = distValPx >= Data_Int.toNumber(widthOrHeight) - 100.0;
-                      if ($36) {
-                          return Data_Functor.map(Effect.functorEffect)(Data_Tuple.Tuple.create(new Data_Tuple.Tuple(Direction.LeftDir.value, distValPx)))(getColor(boxColor));
-                      };
-                      return Control_Applicative.pure(Effect.applicativeEffect)(new Data_Tuple.Tuple(new Data_Tuple.Tuple(Direction.RightDir.value, distValPx + 9.0), boxColor));
-                  };
-                  if (dir instanceof Direction.LeftDir) {
-                      var $37 = distValPx <= 0.0;
-                      if ($37) {
-                          return Data_Functor.map(Effect.functorEffect)(Data_Tuple.Tuple.create(new Data_Tuple.Tuple(Direction.RightDir.value, distValPx)))(getColor(boxColor));
-                      };
-                      return Control_Applicative.pure(Effect.applicativeEffect)(new Data_Tuple.Tuple(new Data_Tuple.Tuple(Direction.LeftDir.value, distValPx - 9.0), boxColor));
-                  };
-                  if (dir instanceof Direction.DownDir) {
-                      var $38 = distValPx >= Data_Int.toNumber(widthOrHeight) - 100.0;
-                      if ($38) {
-                          return Data_Functor.map(Effect.functorEffect)(Data_Tuple.Tuple.create(new Data_Tuple.Tuple(Direction.UpDir.value, distValPx)))(getColor(boxColor));
-                      };
-                      return Control_Applicative.pure(Effect.applicativeEffect)(new Data_Tuple.Tuple(new Data_Tuple.Tuple(Direction.DownDir.value, distValPx + 9.0), boxColor));
-                  };
-                  if (dir instanceof Direction.UpDir) {
-                      var $39 = distValPx <= 0.0;
-                      if ($39) {
-                          return Data_Functor.map(Effect.functorEffect)(Data_Tuple.Tuple.create(new Data_Tuple.Tuple(Direction.DownDir.value, distValPx)))(getColor(boxColor));
-                      };
-                      return Control_Applicative.pure(Effect.applicativeEffect)(new Data_Tuple.Tuple(new Data_Tuple.Tuple(Direction.UpDir.value, distValPx - 9.0), boxColor));
-                  };
-                  throw new Error("Failed pattern match at Main (line 88, column 63 - line 100, column 91): " + [ dir.constructor.name ]);
-              };
-          };
-      };
-  };
-  var moveBox = function (dir) {
-      return function (el) {
-          return function (stateRef) {
-              return function __do() {
-                  var v = Web_HTML.window();
-                  var v1 = Effect_Ref.read(stateRef)();
-                  var prop = Direction.ifIsHorizontal(dir)("left")("top");
-                  var distValPxVert = Data_Tuple.snd(v1.position);
-                  var distValPxHor = Data_Tuple.fst(v1.position);
-                  var distValPx = (function () {
-                      var $42 = Data_Eq.eq(Direction.eqDir)(dir)(Direction.RightDir.value) || Data_Eq.eq(Direction.eqDir)(dir)(Direction.LeftDir.value);
-                      if ($42) {
-                          return distValPxHor;
-                      };
-                      return distValPxVert;
-                  })();
-                  var distStr = Data_Show.show(Data_Show.showNumber)(distValPx) + "px";
-                  var v2 = $foreign.setStyleProp(prop)(distStr)(el)();
-                  var v3 = Data_Functor.map(Effect.functorEffect)(function (w$prime) {
-                      var $43 = Data_Eq.eq(Direction.eqDir)(dir)(Direction.RightDir.value);
-                      if ($43) {
-                          return w$prime;
-                      };
-                      return 0;
-                  })(Web_HTML_Window.innerWidth(v))();
-                  var v4 = Data_Functor.map(Effect.functorEffect)(function (h) {
-                      var $45 = Data_Eq.eq(Direction.eqDir)(dir)(Direction.DownDir.value);
-                      if ($45) {
-                          return h;
-                      };
-                      return 0;
-                  })(Web_HTML_Window.innerHeight(v))();
-                  var v5 = getNewDirectionAndDist(dir)(distValPx)(Direction.ifIsHorizontal(dir)(v3)(v4))(v1.color)();
-                  var newDistVal = Data_Tuple.snd(Data_Tuple.fst(v5));
-                  var newColor = Data_Tuple.snd(v5);
-                  var direction = Data_Tuple.fst(Data_Tuple.fst(v5));
-                  var newPosition = (function () {
-                      var $48 = Data_Eq.eq(Direction.eqDir)(dir)(Direction.RightDir.value) || Data_Eq.eq(Direction.eqDir)(dir)(Direction.LeftDir.value);
-                      if ($48) {
-                          return new Data_Tuple.Tuple(newDistVal, distValPxVert);
-                      };
-                      return new Data_Tuple.Tuple(distValPxHor, newDistVal);
-                  })();
-                  var v6 = $foreign.setStyleProp("background")("#" + newColor)(el)();
-                  var v7 = Web_HTML_Window.requestAnimationFrame(moveBox(direction)(el)(stateRef))(v)();
-                  return Effect_Ref.write({
-                      color: newColor,
-                      dirHor: Direction.ifIsHorizontal(direction)(direction)(v1.dirHor),
-                      dirVert: Direction.ifIsVertical(direction)(direction)(v1.dirVert),
-                      isMoving: true,
-                      position: newPosition,
-                      rafIdHor: Direction.ifIsHorizontal(direction)(v7)(v1.rafIdHor),
-                      rafIdVert: Direction.ifIsVertical(direction)(v7)(v1.rafIdVert)
-                  })(stateRef)();
-              };
-          };
-      };
-  };
-  var execFrame = function (horizontalDir) {
-      return function (verticalDir) {
+  var moveBox = function (hDir) {
+      return function (vDir) {
           return function (el) {
               return function (stateRef) {
                   return function __do() {
-                      moveBox(horizontalDir)(el)(stateRef)();
-                      return moveBox(verticalDir)(el)(stateRef)();
+                      var v = Effect_Ref.read(stateRef)();
+                      var distStrVert = Data_Show.show(Data_Show.showNumber)(v.position.value1) + "px";
+                      var distStrHor = Data_Show.show(Data_Show.showNumber)(v.position.value0) + "px";
+                      var v1 = $foreign.setStyleProp("transform")("translate(" + (distStrHor + (", " + (distStrVert + ")"))))(el)();
+                      var v2 = Web_HTML.window();
+                      var v3 = Web_HTML_Window.innerWidth(v2)();
+                      var v4 = Web_HTML_Window.innerHeight(v2)();
+                      var v5 = getNewDirectionAndDist(hDir)(v.position.value0)(v3)();
+                      var v6 = getNewDirectionAndDist(vDir)(v.position.value1)(v4)();
+                      var newPosition = new Data_Tuple.Tuple(v5.value1, v6.value1);
+                      var changedDir = Data_Eq.notEq(Direction.eqDir)(v5.value0)(hDir) || Data_Eq.notEq(Direction.eqDir)(v6.value0)(vDir);
+                      var v7 = (function () {
+                          if (changedDir) {
+                              return getColor(v.color)();
+                          };
+                          return v.color;
+                      })();
+                      var v8 = $foreign.setStyleProp("background")("#" + v7)(el)();
+                      var v9 = Web_HTML_Window.requestAnimationFrame(moveBox(v5.value0)(v6.value0)(el)(stateRef))(v2)();
+                      return Effect_Ref.write({
+                          color: v7,
+                          dirHor: v5.value0,
+                          dirVert: v6.value0,
+                          isMoving: true,
+                          position: newPosition,
+                          rafId: v9
+                      })(stateRef)();
                   };
+              };
+          };
+      };
+  };
+  var execFrame = function (hDir) {
+      return function (vDir) {
+          return function (el) {
+              return function (stateRef) {
+                  return moveBox(hDir)(vDir)(el)(stateRef);
               };
           };
       };
@@ -1352,9 +1285,9 @@ var PS = {};
                   var v3 = Data_Functor.map(Effect.functorEffect)(Web_HTML_HTMLDocument.toDocument)(Web_HTML_Window.document(v2))();
                   var v4 = Web_DOM_Document.createElement("span")(v3)();
                   (function () {
-                      var $56 = v1.isMoving === true;
-                      if ($56) {
-                          return Control_Bind.bind(Effect.bindEffect)(Web_HTML_Window.cancelAnimationFrame(v1.rafIdHor)(v2))(Control_Applicative.pure(Control_Applicative.applicativeFn)(Web_HTML_Window.cancelAnimationFrame(v1.rafIdVert)(v2)))();
+                      var $64 = v1.isMoving === true;
+                      if ($64) {
+                          return Web_HTML_Window.cancelAnimationFrame(v1.rafId)(v2)();
                       };
                       var v5 = Data_Functor.map(Effect.functorEffect)(Data_Maybe.fromMaybe(v4))(Web_DOM_NonElementParentNode.getElementById("the-box")(Web_DOM_Document.toNonElementParentNode(v3)))();
                       return Data_Functor.map(Effect.functorEffect)(Control_Applicative.pure(Control_Applicative.applicativeFn)(Data_Unit.unit))(Web_HTML_Window.requestAnimationFrame(execFrame(v1.dirHor)(v1.dirVert)(v5)(stateRef))(v2))();
@@ -1365,8 +1298,7 @@ var PS = {};
                       dirVert: v1.dirVert,
                       isMoving: !v1.isMoving,
                       position: v1.position,
-                      rafIdHor: v1.rafIdHor,
-                      rafIdVert: v1.rafIdVert
+                      rafId: v1.rafId
                   })(stateRef)();
               };
           };
@@ -1388,8 +1320,7 @@ var PS = {};
           dirVert: Direction.DownDir.value,
           isMoving: true,
           position: new Data_Tuple.Tuple(0.0, 0.0),
-          rafIdHor: v6,
-          rafIdVert: v6
+          rafId: v6
       })();
       var v8 = Web_HTML_Window.requestAnimationFrame(execFrame(Direction.RightDir.value)(Direction.DownDir.value)(v4)(v7))(v)();
       var v9 = Web_Event_EventTarget.eventListener(function (e) {
@@ -1400,7 +1331,7 @@ var PS = {};
           if (v9 instanceof Data_Maybe.Just) {
               return toggleBoxMove(v9.value0)(v7);
           };
-          throw new Error("Failed pattern match at Main (line 204, column 5 - line 206, column 57): " + [ v9.constructor.name ]);
+          throw new Error("Failed pattern match at Main (line 205, column 5 - line 207, column 57): " + [ v9.constructor.name ]);
       })();
       Web_Event_EventTarget.addEventListener("keydown")(v9)(false)(Web_HTML_Window.toEventTarget(v))();
       return Data_Unit.unit;
