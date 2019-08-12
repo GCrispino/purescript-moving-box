@@ -39,7 +39,7 @@ defaultColor = "ff4242" :: Color
 
 colors = [
     defaultColor,
-    "07f7af"
+    "07f7af",
     "07c7f7",
     "fc982d",
     "2df5fc"
@@ -50,14 +50,13 @@ type State = { color :: Color
     , dirVert :: Direction
     , isMoving :: Boolean
     , position :: (Tuple Number Number)
-    , rafIdHor :: RequestAnimationFrameId
-    , rafIdVert :: RequestAnimationFrameId
+    , rafId :: RequestAnimationFrameId
 }
 
 getColor :: Color -> Effect Color 
 getColor curColor = map 
             ((fromMaybe defaultColor) <<< ((!!) colors'))
-            (randomInt 0 (length colors'))
+            (randomInt 0 $ (length colors') - 1)
             where colors' = filter (\c -> c /= curColor) colors
 
 createElementWithContent :: String -> String -> HTMLDocument -> Effect Element.Element 
@@ -84,67 +83,65 @@ getBodyNodeFromMaybe d defaultNode mB = case mB of
     Nothing -> defaultNode
     Just b -> toNode b
 
-getNewDirectionAndDist :: Direction -> Number -> Int -> Color -> Effect (Tuple (Tuple Direction Number) Color)
-getNewDirectionAndDist dir distValPx widthOrHeight boxColor = case dir of 
+getNewDirectionAndDist :: Direction -> Number -> Int -> Effect (Tuple Direction Number)
+getNewDirectionAndDist dir distValPx widthOrHeight = case dir of 
                             RightDir -> if distValPx >= (toNumber widthOrHeight) - 100.0
-                                then map (Tuple (Tuple LeftDir distValPx)) (getColor boxColor)
-                                else pure $ Tuple (Tuple RightDir (distValPx + 9.0)) boxColor
+                                then pure (Tuple LeftDir distValPx)
+                                else pure $ Tuple RightDir (distValPx + 9.0)
                             LeftDir -> if distValPx <= 0.0
-                                then map (Tuple (Tuple RightDir distValPx)) (getColor boxColor)
-                                else pure $ Tuple (Tuple LeftDir (distValPx - 9.0)) boxColor
+                                then pure (Tuple RightDir distValPx)
+                                else pure $ Tuple LeftDir (distValPx - 9.0)
                             DownDir -> if distValPx >= (toNumber widthOrHeight) - 100.0
-                                then map (Tuple (Tuple UpDir distValPx)) (getColor boxColor)
-                                else pure $ Tuple (Tuple DownDir (distValPx + 9.0)) boxColor
+                                then pure (Tuple UpDir distValPx)
+                                else pure $ Tuple DownDir (distValPx + 9.0)
                             UpDir -> if distValPx <= 0.0
-                                then map (Tuple (Tuple DownDir distValPx)) (getColor boxColor)
-                                else pure $ Tuple (Tuple UpDir (distValPx - 9.0)) boxColor
+                                then pure (Tuple DownDir distValPx)
+                                else pure $ Tuple UpDir (distValPx - 9.0)
 
-moveBox :: Direction -> Element.Element -> Ref State -> Effect Unit
-moveBox dir el stateRef = do
+moveBox :: Direction -> Direction -> Element.Element -> Ref State -> Effect Unit
+moveBox hDir vDir el stateRef = do
                         -- Read state
                         state <- read stateRef
 
                         -- Move box
                         let (Tuple distValPxHor distValPxVert) = state.position
-                            distValPx = if (dir == RightDir || dir == LeftDir)
-                                then distValPxHor
-                                else distValPxVert
-                            distStr = (show distValPx) <> "px"
-                            prop = ifIsHorizontal dir "left" "top"
-                        _ <- setStyleProp prop distStr el
+                            distStrHor = (show distValPxHor) <> "px"
+                            distStrVert = (show distValPxVert) <> "px"
+                        _ <- setStyleProp "transform" ( "translate(" <> distStrHor <> ", " <> distStrVert <> ")" ) el
 
                         -- Determine new direction
                         w <- window
-                        width <- (\w' -> if dir == RightDir then w' else 0) <$> innerWidth w
-                        height <- (\h -> if dir == DownDir then h else 0) <$> innerHeight w
-                        (Tuple (Tuple direction newDistVal) newColor) <- getNewDirectionAndDist dir distValPx (ifIsHorizontal dir width height) state.color
-                        let newPosition = if (dir == RightDir || dir == LeftDir)
-                            then (Tuple newDistVal distValPxVert)
-                            else (Tuple distValPxHor newDistVal)
+                        width <- innerWidth w
+                        height <- innerHeight w
+                        Tuple hDirection newHDist <- getNewDirectionAndDist hDir distValPxHor width
+                        Tuple vDirection newVDist <- getNewDirectionAndDist vDir distValPxVert height
+                        let newPosition = Tuple newHDist newVDist
 
                         -- change color
+                        newColor <- if changedDir (hDirection /= hDir) || (vDirection /= vDir)
+                            then getColor state.color
+                            else pure state.color
+
                         success <- setStyleProp "background" ("#" <> newColor) el
 
                         -- Call next frame
-                        animationFrameId <- requestAnimationFrame (moveBox direction el stateRef) w
+                        animationFrameId <- requestAnimationFrame (moveBox hDirection vDirection el stateRef) w
 
                         -- Update state
                         write { color: newColor
-                            , dirHor: ifIsHorizontal direction direction state.dirHor
-                            , dirVert: ifIsVertical direction direction state.dirVert
+                            , dirHor: hDirection
+                            , dirVert: vDirection
                             , isMoving: true
                             , position: newPosition
-                            , rafIdHor: ifIsHorizontal direction animationFrameId state.rafIdHor
-                            , rafIdVert: ifIsVertical direction animationFrameId state.rafIdVert
+                            , rafId: animationFrameId
                         } stateRef
 
 type RefReqFrameId = Ref RequestAnimationFrameId
 type RefPosition = Ref (Tuple Number Number)
 
 execFrame :: Direction -> Direction -> Element.Element -> Ref State -> Effect Unit
-execFrame horizontalDir verticalDir el stateRef = do
-                                        moveBox horizontalDir el stateRef
-                                        moveBox verticalDir el stateRef
+execFrame hDir vDir el stateRef = do
+                                        moveBox hDir vDir el stateRef
 
 
 toggleBoxMove :: KeyboardEvent -> Ref State -> Effect Unit
@@ -156,8 +153,7 @@ toggleBoxMove keyEvent stateRef = case (key keyEvent) of
                 defaultElem <- (createElement "span" d)
 
                 if state.isMoving == true
-                    then cancelAnimationFrame state.rafIdHor w
-                        >>= pure (cancelAnimationFrame state.rafIdVert w)
+                    then cancelAnimationFrame state.rafId w
                     else do
                         boxEl <- map (fromMaybe defaultElem) (getElementById "the-box" (toNonElementParentNode d))
                         
@@ -170,8 +166,7 @@ toggleBoxMove keyEvent stateRef = case (key keyEvent) of
                     , dirVert: state.dirVert
                     , isMoving: not state.isMoving                    
                     , position: state.position
-                    , rafIdHor: state.rafIdHor
-                    , rafIdVert: state.rafIdVert
+                    , rafId: state.rafId
                 } stateRef
             _ -> pure unit
 
@@ -196,8 +191,7 @@ main = do
     dirVert: DownDir,
     isMoving: true,
     position: Tuple 0.0 0.0,
-    rafIdHor: defaultId,
-    rafIdVert: defaultId
+    rafId: defaultId
   }
 
   frameId <- requestAnimationFrame (
