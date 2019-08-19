@@ -10,28 +10,19 @@ import Effect.Random (randomInt)
 import Effect.Ref (Ref, new, read, write)
 import Effect.Console (log)
 
-import Web.DOM.Document (Document, createElement, toNonElementParentNode)
-import Web.DOM.Element as Element
-import Web.DOM.Node (Node, appendChild, setTextContent)
-import Web.DOM.NonElementParentNode (getElementById)
-import Web.Event.Event (EventType(..))
-import Web.Event.EventTarget (addEventListener, eventListener)
-import Web.HTML (window)
-import Web.HTML.HTMLDocument (HTMLDocument, body, toDocument)
-import Web.HTML.HTMLElement (HTMLElement, toNode)
-import Web.HTML.Window (
-    Window,
-    RequestAnimationFrameId,
-    document,
-    cancelAnimationFrame,
-    innerWidth,
-    innerHeight,
-    requestAnimationFrame,
-    toEventTarget
-)
-import Web.UIEvent.KeyboardEvent (KeyboardEvent, fromEvent, key)
+import Web.DOM.Document (Document, createElement, toNonElementParentNode) as DOM
+import Web.DOM.Element as DOM.Element
+import Web.DOM.Node (Node, appendChild, setTextContent) as DOM
+import Web.DOM.NonElementParentNode (getElementById) as DOM
+import Web.Event.Event (EventType(..)) as Event
+import Web.Event.EventTarget (addEventListener, eventListener) as Event
+import Web.HTML (window) as HTML
+import Web.HTML.HTMLDocument (HTMLDocument, body, toDocument) as HTML
+import Web.HTML.HTMLElement as HTML.HTMLElement
+import Web.HTML.Window as HTML.Window
+import Web.UIEvent.KeyboardEvent (KeyboardEvent, fromEvent, key) as Event
 
-import Direction (Direction(..), ifIsHorizontal, ifIsVertical)
+import Direction (Direction(..))
 
 type Color = String
 
@@ -50,7 +41,7 @@ type State = { color :: Color
     , dirVert :: Direction
     , isMoving :: Boolean
     , position :: (Tuple Number Number)
-    , rafId :: RequestAnimationFrameId
+    , rafId :: HTML.Window.RequestAnimationFrameId
 }
 
 getColor :: Color -> Effect Color 
@@ -59,29 +50,29 @@ getColor curColor = map
             (randomInt 0 $ (length colors') - 1)
             where colors' = filter (\c -> c /= curColor) colors
 
-createElementWithContent :: String -> String -> HTMLDocument -> Effect Element.Element 
+createElementWithContent :: String -> String -> HTML.HTMLDocument -> Effect DOM.Element.Element 
 createElementWithContent tag content d = do 
-      el <- createElement tag (toDocument d)
-      setTextContent content (Element.toNode el)
+      el <- DOM.createElement tag (HTML.toDocument d)
+      DOM.setTextContent content (DOM.Element.toNode el)
       pure el
 
-foreign import setStyleProp :: String -> String -> Element.Element -> Effect Boolean
+foreign import setStyleProp :: String -> String -> DOM.Element.Element -> Effect Boolean
 
-createBoxElement :: String -> Document -> Effect Element.Element
+createBoxElement :: String -> DOM.Document -> Effect DOM.Element.Element
 createBoxElement id document = do
-    boxEl <- createElement "div" document
-    Element.setId id boxEl
-    Element.setClassName "box" boxEl
+    boxEl <- DOM.createElement "div" document
+    DOM.Element.setId id boxEl
+    DOM.Element.setClassName "box" boxEl
     _ <- setStyleProp "position" "relative" boxEl
     _ <- setStyleProp "width" "5em" boxEl
     _ <- setStyleProp "height" "5em" boxEl
     _ <- setStyleProp "background" "#ff4242" boxEl
     pure boxEl
 
-getBodyNodeFromMaybe :: HTMLDocument -> Node -> Maybe HTMLElement -> Node
+getBodyNodeFromMaybe :: HTML.HTMLDocument -> DOM.Node -> Maybe HTML.HTMLElement.HTMLElement -> DOM.Node
 getBodyNodeFromMaybe d defaultNode mB = case mB of 
     Nothing -> defaultNode
-    Just b -> toNode b
+    Just b -> HTML.HTMLElement.toNode b
 
 getNewDirectionAndDist :: Direction -> Number -> Int -> Effect (Tuple Direction Number)
 getNewDirectionAndDist dir distValPx widthOrHeight = case dir of 
@@ -98,7 +89,7 @@ getNewDirectionAndDist dir distValPx widthOrHeight = case dir of
                                 then pure (Tuple DownDir distValPx)
                                 else pure $ Tuple UpDir (distValPx - 9.0)
 
-moveBox :: Direction -> Direction -> Element.Element -> Ref State -> Effect Unit
+moveBox :: Direction -> Direction -> DOM.Element.Element -> Ref State -> Effect Unit
 moveBox hDir vDir el stateRef = do
                         -- Read state
                         state <- read stateRef
@@ -110,9 +101,9 @@ moveBox hDir vDir el stateRef = do
                         _ <- setStyleProp "transform" ( "translate(" <> distStrHor <> ", " <> distStrVert <> ")" ) el
 
                         -- Determine new direction
-                        w <- window
-                        width <- innerWidth w
-                        height <- innerHeight w
+                        w <- HTML.window
+                        width <- HTML.Window.innerWidth w
+                        height <- HTML.Window.innerHeight w
                         Tuple hDirection newHDist <- getNewDirectionAndDist hDir distValPxHor width
                         Tuple vDirection newVDist <- getNewDirectionAndDist vDir distValPxVert height
                         let newPosition = Tuple newHDist newVDist
@@ -125,7 +116,7 @@ moveBox hDir vDir el stateRef = do
                         success <- setStyleProp "background" ("#" <> newColor) el
 
                         -- Call next frame
-                        animationFrameId <- requestAnimationFrame (moveBox hDirection vDirection el stateRef) w
+                        animationFrameId <- HTML.Window.requestAnimationFrame (moveBox hDirection vDirection el stateRef) w
 
                         -- Update state
                         write { color: newColor
@@ -136,28 +127,26 @@ moveBox hDir vDir el stateRef = do
                             , rafId: animationFrameId
                         } stateRef
 
-type RefReqFrameId = Ref RequestAnimationFrameId
+type RefReqFrameId = Ref HTML.Window.RequestAnimationFrameId
 type RefPosition = Ref (Tuple Number Number)
 
-execFrame :: Direction -> Direction -> Element.Element -> Ref State -> Effect Unit
-execFrame hDir vDir el stateRef = do
-                                        moveBox hDir vDir el stateRef
+execFrame :: Direction -> Direction -> DOM.Element.Element -> Ref State -> Effect Unit
+execFrame hDir vDir el stateRef = moveBox hDir vDir el stateRef
 
-
-toggleBoxMove :: KeyboardEvent -> Ref State -> Effect Unit
-toggleBoxMove keyEvent stateRef = case (key keyEvent) of
+toggleBoxMove :: Event.KeyboardEvent -> Ref State -> Effect Unit
+toggleBoxMove keyEvent stateRef = case (Event.key keyEvent) of
             "Enter" -> do
                 state <- read stateRef
-                w <- window
-                d <- map toDocument (document w)
-                defaultElem <- (createElement "span" d)
+                w <- HTML.window
+                d <- map HTML.toDocument (HTML.Window.document w)
+                defaultElem <- (DOM.createElement "span" d)
 
                 if state.isMoving == true
-                    then cancelAnimationFrame state.rafId w
+                    then HTML.Window.cancelAnimationFrame state.rafId w
                     else do
-                        boxEl <- map (fromMaybe defaultElem) (getElementById "the-box" (toNonElementParentNode d))
+                        boxEl <- map (fromMaybe defaultElem) (DOM.getElementById "the-box" (DOM.toNonElementParentNode d))
                         
-                        map (pure unit) (requestAnimationFrame (
+                        map (pure unit) (HTML.Window.requestAnimationFrame (
                           execFrame state.dirHor state.dirVert boxEl stateRef
                         ) w)
 
@@ -173,17 +162,17 @@ toggleBoxMove keyEvent stateRef = case (key keyEvent) of
 
 main :: Effect Unit
 main = do
-  w <- window
-  d <- document w
-  mBody <- body d
-  defaultElem <- (createElement "span" (toDocument d))
-  let b = getBodyNodeFromMaybe d (Element.toNode (defaultElem)) mBody
+  w <- HTML.window
+  d <- HTML.Window.document w
+  mBody <- HTML.body d
+  defaultElem <- (DOM.createElement "span" (HTML.toDocument d))
+  let b = getBodyNodeFromMaybe d (DOM.Element.toNode (defaultElem)) mBody
 
-  boxEl <- createBoxElement "the-box" $ toDocument d
-  newBody <- appendChild (Element.toNode boxEl) b
+  boxEl <- createBoxElement "the-box" $ HTML.toDocument d
+  newBody <- DOM.appendChild (DOM.Element.toNode boxEl) b
 
   -- Create frame that does nothing just to get default frame id
-  defaultId <- (requestAnimationFrame (pure unit) w)
+  defaultId <- (HTML.Window.requestAnimationFrame (pure unit) w)
 
   stateRef <- new {
     color: defaultColor,
@@ -194,15 +183,13 @@ main = do
     rafId: defaultId
   }
 
-  frameId <- requestAnimationFrame (
+  frameId <- HTML.Window.requestAnimationFrame (
     execFrame RightDir DownDir boxEl stateRef
   ) w
   
-  listener <- eventListener \e -> do
-    case fromEvent e of
+  listener <- Event.eventListener \e -> do
+    case Event.fromEvent e of
         Nothing -> pure unit
         Just keyEvent -> toggleBoxMove keyEvent stateRef
-  addEventListener (EventType "keydown") listener false (toEventTarget w)
-
-  pure unit
+  Event.addEventListener (Event.EventType "keydown") listener false (HTML.Window.toEventTarget w)
 
