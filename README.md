@@ -1,6 +1,8 @@
 # purescript-moving-box
 A moving box written in Purescript. No libraries except the `purescript-web-*` ones were used for DOM manipulation.
 
+Check out the the demo [here](https://gcrispino.github.io/purescript-moving-box/)
+
 ### Instructions
 ```bash
 bower install
