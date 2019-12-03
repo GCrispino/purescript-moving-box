@@ -1,35 +1,37 @@
 module Direction
     (Direction(..)
-    , isHorizontal
-    , isVertical
-    , ifIsHorizontal
-    , ifIsVertical
+    , HorizontalDirection(..)
+    , VerticalDirection(..)
+    , toHorizontal
+    , toVertical
     ) where
 
 import Prelude
+import Data.Maybe(Maybe(..))
 
-data Direction = LeftDir | RightDir | UpDir | DownDir
+data HorizontalDirection = LeftDir | RightDir
+derive instance eqHDir :: Eq HorizontalDirection
 
-isHorizontal :: Direction -> Boolean
-isHorizontal RightDir = true
-isHorizontal LeftDir = true
-isHorizontal _ = false
+data VerticalDirection   = UpDir | DownDir
+derive instance eqVDir :: Eq VerticalDirection
 
-isVertical :: Direction -> Boolean
-isVertical UpDir = true
-isVertical DownDir = true
-isVertical _ = false
+data Direction = Horizontal HorizontalDirection
+    | Vertical VerticalDirection
 
-ifIsHorizontal :: forall a. Direction -> a -> a -> a
-ifIsHorizontal dir x y = if (isHorizontal dir) then x else y
+toHorizontal :: Direction -> Maybe HorizontalDirection
+toHorizontal (Horizontal a) = Just a 
+toHorizontal (Vertical _) = Nothing
 
-ifIsVertical :: forall a. Direction -> a -> a -> a
-ifIsVertical dir x y = if (isVertical dir) then x else y
+toVertical :: Direction -> Maybe VerticalDirection
+toVertical (Vertical a) = Just a 
+toVertical (Horizontal _) = Nothing
 
 derive instance eqDir :: Eq Direction
-instance showDir :: Show Direction where
+
+instance showHDir :: Show HorizontalDirection where
     show RightDir = "RightDir"
     show LeftDir = "LeftDir"
+
+instance showVDir :: Show VerticalDirection where
     show UpDir = "UpDir"
     show DownDir = "DownDir"
-

@@ -22,7 +22,11 @@ import Web.HTML.HTMLElement as HTML.HTMLElement
 import Web.HTML.Window as HTML.Window
 import Web.UIEvent.KeyboardEvent (KeyboardEvent, fromEvent, key) as Event
 
-import Direction (Direction(..))
+import Direction (Direction(..)
+    , HorizontalDirection(..)
+    , VerticalDirection(..)
+    , toHorizontal
+    , toVertical)
 
 type Color = String
 
@@ -37,8 +41,8 @@ colors = [
 ] :: Array Color
 
 type State = { color :: Color
-    , dirHor :: Direction
-    , dirVert :: Direction
+    , dirHor :: HorizontalDirection
+    , dirVert :: VerticalDirection
     , isMoving :: Boolean
     , position :: (Tuple Number Number)
     , rafId :: HTML.Window.RequestAnimationFrameId
@@ -65,20 +69,20 @@ createBoxElement id document = do
 
 getNewDirectionAndDist :: Direction -> Number -> Int -> Effect (Tuple Direction Number)
 getNewDirectionAndDist dir distValPx widthOrHeight = case dir of 
-                            RightDir -> if distValPx >= (toNumber widthOrHeight) - 100.0
-                                then pure (Tuple LeftDir distValPx)
-                                else pure $ Tuple RightDir (distValPx + 9.0)
-                            LeftDir -> if distValPx <= 0.0
-                                then pure (Tuple RightDir distValPx)
-                                else pure $ Tuple LeftDir (distValPx - 9.0)
-                            DownDir -> if distValPx >= (toNumber widthOrHeight) - 100.0
-                                then pure (Tuple UpDir distValPx)
-                                else pure $ Tuple DownDir (distValPx + 9.0)
-                            UpDir -> if distValPx <= 0.0
-                                then pure (Tuple DownDir distValPx)
-                                else pure $ Tuple UpDir (distValPx - 9.0)
+                            Horizontal RightDir -> if distValPx >= (toNumber widthOrHeight) - 100.0
+                                then pure (Tuple (Horizontal LeftDir) distValPx)
+                                else pure $ (Tuple (Horizontal RightDir)) (distValPx + 9.0)
+                            Horizontal LeftDir -> if distValPx <= 0.0
+                                then pure (Tuple (Horizontal RightDir) distValPx)
+                                else pure $ (Tuple (Horizontal LeftDir)) (distValPx - 9.0)
+                            Vertical DownDir -> if distValPx >= (toNumber widthOrHeight) - 100.0
+                                then pure (Tuple (Vertical UpDir) distValPx)
+                                else pure $ Tuple (Vertical DownDir) (distValPx + 9.0)
+                            Vertical UpDir -> if distValPx <= 0.0
+                                then pure (Tuple (Vertical DownDir) distValPx)
+                                else pure $ Tuple (Vertical UpDir) (distValPx - 9.0)
 
-moveBox :: Direction -> Direction -> DOM.Element.Element -> Ref State -> Effect Unit
+moveBox :: HorizontalDirection -> VerticalDirection -> DOM.Element.Element -> Ref State -> Effect Unit
 moveBox hDir vDir el stateRef = do
                         -- Read state
                         state <- read stateRef
@@ -93,9 +97,12 @@ moveBox hDir vDir el stateRef = do
                         w <- HTML.window
                         width <- HTML.Window.innerWidth w
                         height <- HTML.Window.innerHeight w
-                        Tuple hDirection newHDist <- getNewDirectionAndDist hDir distValPxHor width
-                        Tuple vDirection newVDist <- getNewDirectionAndDist vDir distValPxVert height
-                        let newPosition = Tuple newHDist newVDist
+
+                        Tuple hDirection newHDist <- getNewDirectionAndDist (Horizontal hDir) distValPxHor width
+                                                        <#> (\(Tuple hD dist) -> Tuple (fromMaybe RightDir (toHorizontal hD)) dist)
+                                                       
+                        Tuple vDirection newVDist <- getNewDirectionAndDist (Vertical vDir) distValPxVert height
+                                                        <#> (\(Tuple vD dist) -> Tuple (fromMaybe DownDir (toVertical vD)) dist)
 
                         -- change color
                         newColor <- if (hDirection /= hDir) || (vDirection /= vDir)
@@ -112,14 +119,14 @@ moveBox hDir vDir el stateRef = do
                             , dirHor: hDirection
                             , dirVert: vDirection
                             , isMoving: true
-                            , position: newPosition
+                            , position: Tuple newHDist newVDist
                             , rafId: animationFrameId
                         } stateRef
 
 type RefReqFrameId = Ref HTML.Window.RequestAnimationFrameId
 type RefPosition = Ref (Tuple Number Number)
 
-execFrame :: Direction -> Direction -> DOM.Element.Element -> Ref State -> Effect Unit
+execFrame :: HorizontalDirection -> VerticalDirection -> DOM.Element.Element -> Ref State -> Effect Unit
 execFrame hDir vDir el stateRef = moveBox hDir vDir el stateRef
 
 toggleBoxMove :: Event.KeyboardEvent -> Ref State -> Effect Unit
