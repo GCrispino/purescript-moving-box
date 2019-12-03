@@ -50,12 +50,6 @@ getColor curColor = map
             (randomInt 0 $ (length colors') - 1)
             where colors' = filter (\c -> c /= curColor) colors
 
-createElementWithContent :: String -> String -> HTML.HTMLDocument -> Effect DOM.Element.Element 
-createElementWithContent tag content d = do 
-      el <- DOM.createElement tag (HTML.toDocument d)
-      DOM.setTextContent content (DOM.Element.toNode el)
-      pure el
-
 foreign import setStyleProp :: String -> String -> DOM.Element.Element -> Effect Boolean
 
 createBoxElement :: String -> DOM.Document -> Effect DOM.Element.Element
@@ -69,8 +63,8 @@ createBoxElement id document = do
     _ <- setStyleProp "background" "#ff4242" boxEl
     pure boxEl
 
-getBodyNodeFromMaybe :: HTML.HTMLDocument -> DOM.Node -> Maybe HTML.HTMLElement.HTMLElement -> DOM.Node
-getBodyNodeFromMaybe d defaultNode mB = case mB of 
+getBodyNodeFromMaybe :: DOM.Node -> Maybe HTML.HTMLElement.HTMLElement -> DOM.Node
+getBodyNodeFromMaybe defaultNode mB = case mB of 
     Nothing -> defaultNode
     Just b -> HTML.HTMLElement.toNode b
 
@@ -166,7 +160,7 @@ main = do
   d <- HTML.Window.document w
   mBody <- HTML.body d
   defaultElem <- (DOM.createElement "span" (HTML.toDocument d))
-  let b = getBodyNodeFromMaybe d (DOM.Element.toNode (defaultElem)) mBody
+  let b = getBodyNodeFromMaybe (DOM.Element.toNode (defaultElem)) mBody
 
   boxEl <- createBoxElement "the-box" $ HTML.toDocument d
   newBody <- DOM.appendChild (DOM.Element.toNode boxEl) b
