@@ -1,7 +1,7 @@
 module Main where
 
 import Prelude
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (fromMaybe, maybe)
 import Data.Int (toNumber)
 import Data.Tuple (Tuple(..))
 import Data.Array ((!!), filter, length)
@@ -12,12 +12,12 @@ import Effect.Console (log)
 
 import Web.DOM.Document (Document, createElement, toNonElementParentNode) as DOM
 import Web.DOM.Element as DOM.Element
-import Web.DOM.Node (Node, appendChild, setTextContent) as DOM
+import Web.DOM.Node (appendChild) as DOM
 import Web.DOM.NonElementParentNode (getElementById) as DOM
 import Web.Event.Event (EventType(..)) as Event
 import Web.Event.EventTarget (addEventListener, eventListener) as Event
 import Web.HTML (window) as HTML
-import Web.HTML.HTMLDocument (HTMLDocument, body, toDocument) as HTML
+import Web.HTML.HTMLDocument (body, toDocument) as HTML
 import Web.HTML.HTMLElement as HTML.HTMLElement
 import Web.HTML.Window as HTML.Window
 import Web.UIEvent.KeyboardEvent (KeyboardEvent, fromEvent, key) as Event
@@ -62,11 +62,6 @@ createBoxElement id document = do
     _ <- setStyleProp "height" "5em" boxEl
     _ <- setStyleProp "background" "#ff4242" boxEl
     pure boxEl
-
-getBodyNodeFromMaybe :: DOM.Node -> Maybe HTML.HTMLElement.HTMLElement -> DOM.Node
-getBodyNodeFromMaybe defaultNode mB = case mB of 
-    Nothing -> defaultNode
-    Just b -> HTML.HTMLElement.toNode b
 
 getNewDirectionAndDist :: Direction -> Number -> Int -> Effect (Tuple Direction Number)
 getNewDirectionAndDist dir distValPx widthOrHeight = case dir of 
@@ -160,7 +155,7 @@ main = do
   d <- HTML.Window.document w
   mBody <- HTML.body d
   defaultElem <- (DOM.createElement "span" (HTML.toDocument d))
-  let b = getBodyNodeFromMaybe (DOM.Element.toNode (defaultElem)) mBody
+  let b = maybe (DOM.Element.toNode (defaultElem)) HTML.HTMLElement.toNode mBody
 
   boxEl <- createBoxElement "the-box" $ HTML.toDocument d
   newBody <- DOM.appendChild (DOM.Element.toNode boxEl) b
@@ -181,9 +176,8 @@ main = do
     execFrame RightDir DownDir boxEl stateRef
   ) w
   
-  listener <- Event.eventListener \e -> do
-    case Event.fromEvent e of
-        Nothing -> pure unit
-        Just keyEvent -> toggleBoxMove keyEvent stateRef
+  listener <- Event.eventListener
+                (maybe (pure unit) ((flip toggleBoxMove) stateRef)
+                    <<< (Event.fromEvent))
   Event.addEventListener (Event.EventType "keydown") listener false (HTML.Window.toEventTarget w)
 
